@@ -1,0 +1,846 @@
+{
+	"info": {
+		"_postman_id": "47968f38-dae0-41c6-8f2b-7c787652c7d3",
+		"name": "demo-server-auth",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "authorize client",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "47075b13-2ad7-4463-8a21-5f19e06bc7dc",
+						"exec": [
+							"const client_id = Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 10);\r",
+							"const code_verifier = Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 10);\r",
+							"\r",
+							"const code_challenge = CryptoJS.SHA256(code_verifier).toString(CryptoJS.enc.Hex);\r",
+							"const code_challenge_method = 'S256';\r",
+							"\r",
+							"pm.globals.set(\"client_id\", client_id);\r",
+							"pm.globals.set(\"code_verifier\", code_verifier);\r",
+							"\r",
+							"pm.variables.set(\"client_id\", client_id);\r",
+							"pm.variables.set(\"code_challenge\", code_challenge);\r",
+							"pm.variables.set(\"code_challenge_method\", code_challenge_method);\r",
+							""
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"id": "7fbe6d7a-47f5-465f-81a7-32093f28d575",
+						"exec": [
+							"pm.test(\"Status test\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"    pm.globals.set(\"authorization_code\", pm.response.json()['authorization_code']);\r",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://127.0.0.1:8000/authorize?client_id={{client_id}}&code_challenge={{code_challenge}}&code_challenge_method={{code_challenge_method}}",
+					"protocol": "https",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"authorize"
+					],
+					"query": [
+						{
+							"key": "client_id",
+							"value": "{{client_id}}"
+						},
+						{
+							"key": "code_challenge",
+							"value": "{{code_challenge}}"
+						},
+						{
+							"key": "code_challenge_method",
+							"value": "{{code_challenge_method}}"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "login",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "a84c112f-3191-4676-86e6-ed8f07454b7a",
+						"exec": [
+							"const client_id = pm.globals.get(\"client_id\");\r",
+							"const code_verifier = pm.globals.get(\"code_verifier\");\r",
+							"const authorization_key = pm.globals.get(\"key\");\r",
+							"\r",
+							"\r",
+							"function jwt_decode(jwt) {\r",
+							"    var parts = jwt.split('.');\r",
+							"    let tokenContents={};\r",
+							"    tokenContents.header = JSON.parse(atob(parts[0]));\r",
+							"    tokenContents.payload = JSON.parse(atob(parts[1]));\r",
+							"    tokenContents.signature = atob(parts[2]);\r",
+							"\r",
+							"    return tokenContents;\r",
+							"}\r",
+							"\r",
+							"const key_payload = jwt_decode(authorization_key)['payload'];\r",
+							"\r",
+							"const key = key_payload['k'];\r",
+							"\r",
+							"const signedHeaders = ['Date', 'User-Agent'];\r",
+							"\r",
+							"var moment = require('moment')\r",
+							"const date = moment().format(\"LLLL\").toString()\r",
+							"pm.variables.set(\"date\", date)\r",
+							"\r",
+							"const random_secret = \"PostmanRuntime/7.26.5\";\r",
+							"pm.variables.set(\"random_secret\", random_secret)\r",
+							"\r",
+							"let signature_string = CryptoJS.HmacSHA256(date, key);\r",
+							"\r",
+							"signature_string = CryptoJS.enc.Hex.stringify(CryptoJS.HmacSHA256(random_secret, signature_string));\r",
+							"\r",
+							"console.log(jwt_decode(authorization_key))\r",
+							"const signature = JSON.stringify({\r",
+							"    'key_id': jwt_decode(authorization_key)['header']['kid'],\r",
+							"    'algorithm': 'hmac-sha256',\r",
+							"    'signed_headers': signedHeaders,\r",
+							"    'signature': signature_string\r",
+							"});\r",
+							"\r",
+							"const signature_header = btoa(signature);\r",
+							"pm.variables.set(\"signature_header\", signature_header);\r",
+							"\r",
+							"\r",
+							"\r",
+							"pm.variables.set(\"client_id\", client_id);\r",
+							"pm.variables.set(\"code_verifier\", code_verifier);\r",
+							"pm.variables.set(\"access_token\", pm.globals.get(\"access_token\"));\r",
+							"pm.variables.set(\"username\",  pm.globals.get(\"username\"));\r",
+							"pm.variables.set(\"password\",  pm.globals.get(\"password\"));\r",
+							""
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"id": "89463bcd-333e-49ca-aad7-b968e2dff2cb",
+						"exec": [
+							"pm.test(\"Status test\", function () {\r",
+							"    pm.response.to.have.status(201);\r",
+							"    \r",
+							"    pm.globals.set(\"key\", pm.response.json()['key']);\r",
+							"\r",
+							"    pm.globals.set(\"access_token\", pm.response.json()['access']);\r",
+							"\r",
+							"    pm.globals.set(\"refresh_token\", pm.response.json()['refresh']);\r",
+							"\r",
+							"});\r",
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{access_token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Signature",
+						"value": "{{signature_header}}",
+						"type": "text"
+					},
+					{
+						"key": "Date",
+						"value": "{{date}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"grant_type\": \"password\",\r\n    \"username\": \"{{username}}\",\r\n    \"password\": \"{{password}}\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://127.0.0.1:8000/login",
+					"protocol": "https",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "user-info",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "cf440125-1498-42e1-ab8d-c3a9885cd365",
+						"exec": [
+							"function jwt_decode(jwt) {\r",
+							"    var parts = jwt.split('.');\r",
+							"    let tokenContents={};\r",
+							"    tokenContents.header = JSON.parse(atob(parts[0]));\r",
+							"    tokenContents.payload = JSON.parse(atob(parts[1]));\r",
+							"    tokenContents.signature = atob(parts[2]);\r",
+							"\r",
+							"    return tokenContents;\r",
+							"}\r",
+							"\r",
+							"const signature_key = pm.globals.get(\"key\");\r",
+							"\r",
+							"const access_token = pm.globals.get(\"access_token\");\r",
+							"\r",
+							"pm.variables.set(\"access_token\", access_token);\r",
+							"\r",
+							"const key_payload = jwt_decode(signature_key)['payload'];\r",
+							"\r",
+							"const key = key_payload['k'];\r",
+							"\r",
+							"const signedHeaders = ['Date', 'User-Agent'];\r",
+							"\r",
+							"var moment = require('moment')\r",
+							"const date = moment().format(\"LLLL\").toString()\r",
+							"pm.variables.set(\"date\", date)\r",
+							"\r",
+							"const random_secret = \"PostmanRuntime/7.26.5\";\r",
+							"pm.variables.set(\"random_secret\", random_secret)\r",
+							"\r",
+							"let signature_string = CryptoJS.HmacSHA256(date, key);\r",
+							"\r",
+							"signature_string = CryptoJS.enc.Hex.stringify(CryptoJS.HmacSHA256(random_secret, signature_string));\r",
+							"\r",
+							"const signature = JSON.stringify({\r",
+							"    'key_id': jwt_decode(signature_key)['header']['kid'],\r",
+							"    'algorithm': 'hmac-sha256',\r",
+							"    'signed_headers': signedHeaders,\r",
+							"    'signature': signature_string\r",
+							"});\r",
+							"\r",
+							"const signature_header = btoa(signature);\r",
+							"pm.variables.set(\"signature_header\", signature_header);\r",
+							""
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"id": "2f5b6d8c-1d4c-4041-be21-d0770c79bf42",
+						"exec": [
+							"pm.test(\"Status test\", function () {\r",
+							"    const isUserInfoRedone = pm.globals.get(\"is-user-info-redone\");\r",
+							"    if (!isUserInfoRedone){\r",
+							"        pm.response.to.have.status(200);\r",
+							"        setTimeout(() => {\r",
+							"            pm.globals.set(\"is-user-info-redone\", true);\r",
+							"            postman.setNextRequest('user-info');\r",
+							"        }, 5000)\r",
+							"    }\r",
+							"    else{\r",
+							"        pm.globals.set(\"is-user-info-redone\", false);\r",
+							"        pm.response.to.have.status(403);\r",
+							"    }\r",
+							"});\r",
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"protocolProfileBehavior": {
+				"disabledSystemHeaders": {}
+			},
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{access_token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [
+					{
+						"key": "Signature",
+						"value": "{{signature_header}}",
+						"type": "text"
+					},
+					{
+						"key": "Date",
+						"value": "{{date}}",
+						"type": "text"
+					},
+					{
+						"key": "Random-Secret",
+						"value": "{{random_secret}}",
+						"type": "text",
+						"disabled": true
+					}
+				],
+				"url": {
+					"raw": "https://127.0.0.1:8000/user-info",
+					"protocol": "https",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"user-info"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "refresh-token",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "06e1b97a-bb35-4e3f-bdbe-b240e441e565",
+						"exec": [
+							"const refresh_token = pm.globals.get(\"refresh_token\");\r",
+							"\r",
+							"pm.variables.set(\"refresh_token\", refresh_token);\r",
+							"function jwt_decode(jwt) {\r",
+							"    var parts = jwt.split('.');\r",
+							"    let tokenContents={};\r",
+							"    tokenContents.header = JSON.parse(atob(parts[0]));\r",
+							"    tokenContents.payload = JSON.parse(atob(parts[1]));\r",
+							"    tokenContents.signature = atob(parts[2]);\r",
+							"\r",
+							"    return tokenContents;\r",
+							"}\r",
+							"\r",
+							"const signature_key = pm.globals.get(\"key\");\r",
+							"\r",
+							"const access_token = pm.globals.get(\"access_token\");\r",
+							"\r",
+							"pm.variables.set(\"access_token\", access_token);\r",
+							"\r",
+							"const key_payload = jwt_decode(signature_key)['payload'];\r",
+							"\r",
+							"const key = key_payload['k'];\r",
+							"\r",
+							"const signedHeaders = ['Date', 'User-Agent'];\r",
+							"\r",
+							"var moment = require('moment')\r",
+							"const date = moment().format(\"LLLL\").toString()\r",
+							"pm.variables.set(\"date\", date)\r",
+							"\r",
+							"const random_secret = \"PostmanRuntime/7.26.5\";\r",
+							"pm.variables.set(\"random_secret\", random_secret)\r",
+							"\r",
+							"let signature_string = CryptoJS.HmacSHA256(date, key);\r",
+							"\r",
+							"signature_string = CryptoJS.enc.Hex.stringify(CryptoJS.HmacSHA256(random_secret, signature_string));\r",
+							"\r",
+							"const signature = JSON.stringify({\r",
+							"    'key_id': jwt_decode(signature_key)['header']['kid'],\r",
+							"    'algorithm': 'hmac-sha256',\r",
+							"    'signed_headers': signedHeaders,\r",
+							"    'signature': signature_string\r",
+							"});\r",
+							"\r",
+							"const signature_header = btoa(signature);\r",
+							"pm.variables.set(\"signature_header\", signature_header);\r",
+							""
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"id": "d8b364a8-b0a4-423f-b317-4f82fdab1b08",
+						"exec": [
+							"pm.test(\"Status test\", function () {\r",
+							"    pm.response.to.have.status(201);\r",
+							"    pm.globals.set(\"key\", pm.response.json()['key']);\r",
+							"\r",
+							"    pm.globals.set(\"access_token\", pm.response.json()['access']);\r",
+							"\r",
+							"    pm.globals.set(\"refresh_token\", pm.response.json()['refresh']);\r",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{refresh_token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [
+					{
+						"key": "Signature",
+						"value": "{{signature_header}}",
+						"type": "text"
+					},
+					{
+						"key": "Date",
+						"value": "{{date}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "https://127.0.0.1:8000/refresh-token",
+					"protocol": "https",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"refresh-token"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "revoke-access",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "31db985e-54ea-4df7-9b91-47486b4594ed",
+						"exec": [
+							"const refresh_token = pm.globals.get(\"refresh_token\");\r",
+							"\r",
+							"pm.variables.set(\"refresh_token\", refresh_token);\r",
+							"function jwt_decode(jwt) {\r",
+							"    var parts = jwt.split('.');\r",
+							"    let tokenContents={};\r",
+							"    tokenContents.header = JSON.parse(atob(parts[0]));\r",
+							"    tokenContents.payload = JSON.parse(atob(parts[1]));\r",
+							"    tokenContents.signature = atob(parts[2]);\r",
+							"\r",
+							"    return tokenContents;\r",
+							"}\r",
+							"\r",
+							"const signature_key = pm.globals.get(\"key\");\r",
+							"\r",
+							"const access_token = pm.globals.get(\"access_token\");\r",
+							"\r",
+							"pm.variables.set(\"access_token\", access_token);\r",
+							"\r",
+							"const key_payload = jwt_decode(signature_key)['payload'];\r",
+							"\r",
+							"const key = key_payload['k'];\r",
+							"\r",
+							"const signedHeaders = ['Date', 'User-Agent'];\r",
+							"\r",
+							"var moment = require('moment')\r",
+							"const date = moment().format(\"LLLL\").toString()\r",
+							"pm.variables.set(\"date\", date)\r",
+							"\r",
+							"const random_secret = \"PostmanRuntime/7.26.5\";\r",
+							"pm.variables.set(\"random_secret\", random_secret)\r",
+							"\r",
+							"let signature_string = CryptoJS.HmacSHA256(date, key);\r",
+							"\r",
+							"signature_string = CryptoJS.enc.Hex.stringify(CryptoJS.HmacSHA256(random_secret, signature_string));\r",
+							"\r",
+							"const signature = JSON.stringify({\r",
+							"    'key_id': jwt_decode(signature_key)['header']['kid'],\r",
+							"    'algorithm': 'hmac-sha256',\r",
+							"    'signed_headers': signedHeaders,\r",
+							"    'signature': signature_string\r",
+							"});\r",
+							"\r",
+							"const signature_header = btoa(signature);\r",
+							"pm.variables.set(\"signature_header\", signature_header);\r",
+							""
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"id": "2c002aff-d3e6-4e7b-ace4-ed5d2a747140",
+						"exec": [
+							"pm.test(\"Status test\", function () {\r",
+							"    const isUserInfoRedone = pm.globals.get(\"is-revoke-access-redone\");\r",
+							"    if (!isUserInfoRedone){\r",
+							"        pm.response.to.have.status(200);\r",
+							"        pm.globals.set(\"is-revoke-access-redone\", true);\r",
+							"        postman.setNextRequest('revoke-access');\r",
+							"    }\r",
+							"    else{\r",
+							"        pm.globals.set(\"is-revoke-access-redone\", false);\r",
+							"        pm.response.to.have.status(403);\r",
+							"        pm.environment.clear()\r",
+							"        pm.globals.clear()\r",
+							"    }\r",
+							"});\r",
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{refresh_token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "Signature",
+						"value": "{{signature_header}}",
+						"type": "text"
+					},
+					{
+						"key": "Date",
+						"value": "{{date}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "https://127.0.0.1:8000/revoke-access",
+					"protocol": "https",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"revoke-access"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "sign-up",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "664ecc64-38de-4c35-9819-08eb172b0365",
+						"exec": [
+							"const client_id = pm.globals.get(\"client_id\");\r",
+							"const code_verifier = pm.globals.get(\"code_verifier\");\r",
+							"const authorization_key = pm.globals.get(\"key\");\r",
+							"\r",
+							"\r",
+							"function jwt_decode(jwt) {\r",
+							"    var parts = jwt.split('.');\r",
+							"    let tokenContents={};\r",
+							"    tokenContents.header = JSON.parse(atob(parts[0]));\r",
+							"    tokenContents.payload = JSON.parse(atob(parts[1]));\r",
+							"    tokenContents.signature = atob(parts[2]);\r",
+							"\r",
+							"    return tokenContents;\r",
+							"}\r",
+							"\r",
+							"const key_payload = jwt_decode(authorization_key)['payload'];\r",
+							"\r",
+							"const key = key_payload['k'];\r",
+							"\r",
+							"const signedHeaders = ['Date', 'User-Agent'];\r",
+							"\r",
+							"var moment = require('moment')\r",
+							"const date = moment().format(\"LLLL\").toString()\r",
+							"pm.variables.set(\"date\", date)\r",
+							"\r",
+							"const random_secret = \"PostmanRuntime/7.26.5\";\r",
+							"pm.variables.set(\"random_secret\", random_secret)\r",
+							"\r",
+							"let signature_string = CryptoJS.HmacSHA256(date, key);\r",
+							"\r",
+							"signature_string = CryptoJS.enc.Hex.stringify(CryptoJS.HmacSHA256(random_secret, signature_string));\r",
+							"\r",
+							"console.log(jwt_decode(authorization_key))\r",
+							"const signature = JSON.stringify({\r",
+							"    'key_id': jwt_decode(authorization_key)['header']['kid'],\r",
+							"    'algorithm': 'hmac-sha256',\r",
+							"    'signed_headers': signedHeaders,\r",
+							"    'signature': signature_string\r",
+							"});\r",
+							"\r",
+							"const signature_header = btoa(signature);\r",
+							"pm.variables.set(\"signature_header\", signature_header);\r",
+							"\r",
+							"\r",
+							"\r",
+							"pm.variables.set(\"client_id\", client_id);\r",
+							"pm.variables.set(\"code_verifier\", code_verifier);\r",
+							"pm.variables.set(\"access_token\", pm.globals.get(\"access_token\"));\r",
+							"\r",
+							"const username = Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 10);\r",
+							"const password = Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 10)\r",
+							"pm.variables.set(\"username\", username);\r",
+							"pm.variables.set(\"password\", password);\r",
+							"\r",
+							"pm.globals.set(\"username\", username);\r",
+							"pm.globals.set(\"password\", password);"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{access_token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Signature",
+						"value": "{{signature_header}}",
+						"type": "text"
+					},
+					{
+						"key": "Date",
+						"value": "{{date}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"grant_type\": \"password\",\r\n    \"username\": \"{{username}}\",\r\n    \"password\": \"{{password}}\",\r\n    \"client_id\": \"{{client_id}}\",\r\n    \"code_verifier\": \"{{code_verifier}}\",\r\n    \"authorization_key\": \"{{authorization_key}}\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://127.0.0.1:8000/sign-up",
+					"protocol": "https",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"sign-up"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "exchange",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "7c0780d0-141b-4ee5-8892-2a7984c44820",
+						"exec": [
+							"const client_id = pm.globals.get(\"client_id\");\r",
+							"const code_verifier = pm.globals.get(\"code_verifier\");\r",
+							"const authorization_key = pm.globals.get(\"authorization_code\");\r",
+							"\r",
+							"\r",
+							"function jwt_decode(jwt) {\r",
+							"    var parts = jwt.split('.');\r",
+							"    let tokenContents={};\r",
+							"    tokenContents.header = JSON.parse(atob(parts[0]));\r",
+							"    tokenContents.payload = JSON.parse(atob(parts[1]));\r",
+							"    tokenContents.signature = atob(parts[2]);\r",
+							"\r",
+							"    return tokenContents;\r",
+							"}\r",
+							"\r",
+							"const key_payload = jwt_decode(authorization_key)['payload'];\r",
+							"\r",
+							"const key = key_payload['k'];\r",
+							"\r",
+							"const signedHeaders = ['Date', 'User-Agent'];\r",
+							"\r",
+							"var moment = require('moment')\r",
+							"const date = moment().format(\"LLLL\").toString()\r",
+							"pm.variables.set(\"date\", date)\r",
+							"\r",
+							"const random_secret = \"PostmanRuntime/7.26.5\";\r",
+							"pm.variables.set(\"random_secret\", random_secret)\r",
+							"\r",
+							"let signature_string = CryptoJS.HmacSHA256(date, key);\r",
+							"\r",
+							"signature_string = CryptoJS.enc.Hex.stringify(CryptoJS.HmacSHA256(random_secret, signature_string));\r",
+							"\r",
+							"console.log(jwt_decode(authorization_key))\r",
+							"const signature = JSON.stringify({\r",
+							"    'key_id': jwt_decode(authorization_key)['header']['jti'],\r",
+							"    'algorithm': 'hmac-sha256',\r",
+							"    'signed_headers': signedHeaders,\r",
+							"    'signature': signature_string\r",
+							"});\r",
+							"\r",
+							"const signature_header = btoa(signature);\r",
+							"pm.variables.set(\"signature_header\", signature_header);\r",
+							"\r",
+							"\r",
+							"\r",
+							"pm.variables.set(\"client_id\", client_id);\r",
+							"pm.variables.set(\"code_verifier\", code_verifier);\r",
+							"pm.variables.set(\"authorization_key\", authorization_key);\r",
+							""
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"id": "e2fd1b01-c115-4345-be64-ecbd27837de3",
+						"exec": [
+							"pm.test(\"Status test\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"    pm.globals.set(\"key\", pm.response.json()['key']);\r",
+							"\r",
+							"    pm.globals.set(\"access_token\", pm.response.json()['access']);\r",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{authorization_key}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Signature",
+						"value": "{{signature_header}}",
+						"type": "text"
+					},
+					{
+						"key": "Date",
+						"value": "{{date}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"client_id\": \"{{client_id}}\",\r\n    \"code_verifier\": \"{{code_verifier}}\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://127.0.0.1:8000/exchange",
+					"protocol": "https",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"exchange"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"protocolProfileBehavior": {}
+}
